@@ -12,6 +12,7 @@ class GameStatus(str, Enum):
 
     STARTED = "started"
     COMPLETED = "completed"
+    EXPIRED = "expired"
 
 
 class TableBase(SQLModel):
@@ -40,7 +41,7 @@ class GameSession(TableBase, table=True):
 
     __tablename__ = "game_sessions"
 
-    user_id: int = Field(foreign_key="users.id", index=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     start_time: datetime = Field(default_factory=datetime.utcnow)
     stop_time: datetime | None = None
     duration_ms: int | None = None  # Duration in milliseconds

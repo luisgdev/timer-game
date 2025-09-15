@@ -22,8 +22,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="FastAPI Authentication Backend",
-    description="A basic authentication backend with JWT tokens and SQLite database",
+    title="Time it right Game",
+    description="A timer-based game where users try to stop exactly at 10 seconds",
     version="1.0.0",
     lifespan=lifespan,
 )

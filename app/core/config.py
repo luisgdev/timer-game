@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str = secrets.token_urlsafe(32)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 5
     ALGORITHM: str = "HS256"
+    GAME_SESSION_EXPIRE_MINUTES: int = 30
+    TARGET_TIME_MS: int = 10_000
+    # Below is internal config
     model_config = SettingsConfigDict(env_file=".env")
 
 
