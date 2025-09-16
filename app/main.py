@@ -6,7 +6,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from app.core.database import init_db
-from app.routers import auth, games, leaderboard
+from app.routers import auth, games, leaderboard, analytics
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -31,6 +31,7 @@ app = FastAPI(
 app.include_router(router=auth.router)
 app.include_router(router=games.router)
 app.include_router(router=leaderboard.router)
+app.include_router(router=analytics.router)
 
 
 @app.get("/")
