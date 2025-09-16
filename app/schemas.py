@@ -1,6 +1,7 @@
 """Schemas module"""
 import uuid
 from datetime import datetime
+from typing import List
 
 from pydantic import BaseModel
 
@@ -55,3 +56,21 @@ class GameStopResponse(BaseModel):
     deviation_ms: int
     accuracy_percentage: float
     message: str
+
+
+class LeaderboardEntry(BaseModel):
+    """Leaderboard entry model"""
+    rank: int
+    username: str
+    total_games: int
+    average_deviation_ms: float
+    best_deviation_ms: int
+    accuracy_percentage: float
+
+
+class LeaderboardResponse(BaseModel):
+    """Leaderboard response model"""
+    entries: List[LeaderboardEntry]
+    page: int
+    total_pages: int
+    total_players: int
