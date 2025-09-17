@@ -2,29 +2,24 @@
 import uuid
 from datetime import datetime, timedelta
 
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.core.config import settings
 from app.models import GameSession, GameStatus, User
+from app.routers.games.repository import GameRepository
+
+game_db = GameRepository()
 
 
 async def get_session_by_user(db_session: Session, user: User) -> GameSession | None:
     """Check if a game session exists for a user."""
-    active_session = db_session.exec(
-        select(GameSession).where(
-            GameSession.user_id == user.id, GameSession.status == GameStatus.STARTED
-        )
-    ).first()
+    active_session = game_db.get_by_user_id(user_id=user.id, db_session=db_session)
     return active_session
 
 
 async def get_session_by_id(db_session: Session, game_id: uuid.UUID) -> GameSession | None:
     """Check if a game session exists by ID."""
-    active_session = db_session.exec(
-        select(GameSession).where(
-            GameSession.id == game_id, GameSession.status == GameStatus.STARTED
-        )
-    ).first()
+    active_session = game_db.get(item_id=game_id, db_session=db_session)
     return active_session
 
 
@@ -33,18 +28,14 @@ def update_game_session_status(
 ) -> GameSession:
     """Update a game session status."""
     game_session.status = status
-    db_session.add(game_session)
-    db_session.commit()
-    db_session.refresh(game_session)
-    return game_session
+    result = game_db.update(updated_item=game_session, db_session=db_session)
+    return result
 
 
 def create_game_session(db_session: Session, game_session: GameSession) -> GameSession:
     """Save a game session."""
-    db_session.add(game_session)
-    db_session.commit()
-    db_session.refresh(game_session)
-    return game_session
+    result = game_db.create(item=game_session, db_session=db_session)
+    return result
 
 
 def calculate_duration_ms(start_time: datetime, stop_time: datetime) -> int:

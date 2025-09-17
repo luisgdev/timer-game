@@ -33,7 +33,6 @@ async def start_game(
     if active_session:
         # Check if it's expired
         if is_session_expired(active_session.start_time):
-            active_session.status = GameStatus.EXPIRED
             update_game_session_status(
                 game_session=active_session, status=GameStatus.EXPIRED, db_session=db_session
             )

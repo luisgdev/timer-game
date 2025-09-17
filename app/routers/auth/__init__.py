@@ -14,7 +14,6 @@ from app.routers.auth.service import (
     authenticate_user,
     create_access_token,
     create_user,
-    get_user_by_email,
     logout_user,
     verify_token,
 )
@@ -26,28 +25,11 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
-async def get_current_user(
-    token: str = Depends(oauth2_scheme), session: Session = Depends(get_session)
-) -> User:
-    """Get the current authenticated user from JWT token."""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    token_data = await verify_token(token, credentials_exception, session)
-    user = await get_user_by_email(token_data.email, session)
-    if user is None:
-        raise credentials_exception
-    return user
-
-
-@router.post("/register", response_model=User)
+@router.post("/register", response_model=User, status_code=status.HTTP_201_CREATED)
 async def register(user_create: UserSignUp, session: Session = Depends(get_session)):
     """Register a new user account."""
     try:
-        user = await create_user(user_create, session)
+        user = create_user(user_create, session)
         return user
     except (HTTPException, Exception) as error:
         logger.error(error)

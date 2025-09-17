@@ -7,11 +7,16 @@ from typing import Optional
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.core.config import settings
 from app.models import TokenBlacklist, User
+from app.routers.auth.repository import TokenBlacklistRepository, UserRepository
 from app.schemas import TokenData, UserSignUp
+
+user_db = UserRepository()
+token_blacklist_db = TokenBlacklistRepository()
+
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -50,11 +55,10 @@ async def verify_token(token: str, credentials_exception, session: Session = Non
         if email is None:
             raise credentials_exception
 
-        # Check if token is blacklisted (if session is provided)
-        if session:
-            jti = payload.get("jti")
-            if jti and await is_token_blacklisted(jti, session):
-                raise credentials_exception
+        # Check if token is blacklisted
+        jti = payload.get("jti")
+        if jti and await is_token_blacklisted(jti, session=session):
+            raise credentials_exception
 
         token_data = TokenData(email=email)
         return token_data
@@ -64,7 +68,7 @@ async def verify_token(token: str, credentials_exception, session: Session = Non
 
 async def authenticate_user(email: str, password: str, session: Session) -> Optional[User]:
     """Authenticate a user with email and password."""
-    user = await get_user_by_email(email, session)
+    user = user_db.get_by_email(email=email, db_session=session)
     if not user:
         return None
     if not verify_password(password, user.password_hash):
@@ -74,41 +78,36 @@ async def authenticate_user(email: str, password: str, session: Session) -> Opti
 
 async def get_user_by_email(email: str, session: Session) -> Optional[User]:
     """Get a user by email."""
-    statement = select(User).where(User.email == email)
-    result = session.exec(statement)
-    user = result.first()
+    user = user_db.get_by_email(email=email, db_session=session)
     return user
 
 
-async def create_user(user_create: UserSignUp, session: Session) -> User:
+def create_user(user_create: UserSignUp, session: Session) -> User:
     """Create a new user."""
     # Check if user already exists
-    existing_user = await get_user_by_email(user_create.email, session)
-    if existing_user:
+    existing_user_email = user_db.get_by_email(email=user_create.email, db_session=session)
+    if existing_user_email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
 
     # Check if username already exists
-    statement = select(User).where(User.username == user_create.username)
-    result = session.exec(statement)
-    if result.first():
+    existing_username = user_db.get_by_username(username=user_create.username, db_session=session)
+    if existing_username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Username already taken"
         )
 
     # Create new user
-    user = User(
-        email=user_create.email,
-        username=user_create.username,
-        is_active=True,
-        password_hash=get_password_hash(user_create.password),
+    user = user_db.create(
+        item=User(
+            email=user_create.email,
+            username=user_create.username,
+            is_active=True,
+            password_hash=get_password_hash(user_create.password),
+        ),
+        db_session=session,
     )
-
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-
     return user
 
 
@@ -116,22 +115,17 @@ async def add_token_to_blacklist(
     token_jti: str, user_id: uuid.UUID, expires_at: datetime, session: Session
 ) -> bool:
     """Add a token to the blacklist."""
-    statement = select(TokenBlacklist).where(TokenBlacklist.token_jti == token_jti)
-    result = session.exec(statement)
-    token_blacklisted = result.first()
+    token_blacklisted = token_blacklist_db.get(item_id=token_jti, db_session=session)
     if token_blacklisted:
         return False
     blacklisted_token = TokenBlacklist(token_jti=token_jti, user_id=user_id, expires_at=expires_at)
-    session.add(blacklisted_token)
-    session.commit()
-    return True
+    result = token_blacklist_db.create(item=blacklisted_token, db_session=session)
+    return result is not None
 
 
 async def is_token_blacklisted(token_jti: str, session: Session) -> bool:
     """Check if a token is blacklisted."""
-    statement = select(TokenBlacklist).where(TokenBlacklist.token_jti == token_jti)
-    result = session.exec(statement)
-    blacklisted_token = result.first()
+    blacklisted_token = token_blacklist_db.get(item_id=token_jti, db_session=session)
     return blacklisted_token is not None
 
 
@@ -154,12 +148,12 @@ async def logout_user(token: str, session: Session) -> bool:
         if not email:
             return False
 
-        user = await get_user_by_email(email, session)
+        user = user_db.get_by_email(email, db_session=session)
         if not user:
             return False
 
         # Add token to blacklist
-        result = await add_token_to_blacklist(jti, user.id, expires_at, session)
+        result = await add_token_to_blacklist(jti, user.id, expires_at, session=session)
         return result
 
     except JWTError:
