@@ -33,6 +33,8 @@ async def register(user_create: UserSignUp, session: Session = Depends(get_sessi
         return user
     except (HTTPException, Exception) as error:
         logger.error(error)
+        if isinstance(error, HTTPException):
+            raise error
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during registration",
